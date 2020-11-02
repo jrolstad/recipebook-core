@@ -28,10 +28,10 @@ jobs:
         base_href: /
       
     - name: Publish to Github Pages
-      uses: peaceiris/actions-gh-pages@v3.7.1
+      uses: peaceiris/actions-gh-pages@v3
       with:
         github_token: ${{ secrets.GITHUB_TOKEN }}
         publish_dir: ${{ env.PUBLISH_DIR }}
-        publish_branch: release/blazor
+        publish_branch: release/blazor-ui
         cname: recipes.rolstadfamily.com
         
