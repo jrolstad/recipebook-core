@@ -6,11 +6,11 @@
             <ul class="nav navbar-nav mr-auto">
                 <li class="nav-item ">
                     <span class="navbar-text">
-                       <SmallSearch/>
+                        <SmallSearch />
                     </span>
                 </li>
             </ul>
-           
+
         </div>
         <div class="collapse navbar-collapse" id="navbarResponsive">
             <ul class="nav navbar-nav mr-auto">
@@ -18,16 +18,21 @@
                     <Search />
                 </li>
                 <li class="nav-item">
-                    <AuthorizeView>
-                        <Authorized>
-                            &nbsp;&nbsp;&nbsp;&nbsp; <AddRecipeCommand />
-                        </Authorized>
-                    </AuthorizeView>
+                   
                 </li>
 
             </ul>
         </div>
         <ul class="nav navbar-nav flex-row justify-content-md-center justify-content-start flex-nowrap">
+            <AuthorizeView>
+                <Authorized>
+                    <li class="nav-item ">
+                        <span class="navbar-text">
+                            <AddRecipeCommand />&nbsp;&nbsp;&nbsp;&nbsp;
+                        </span>
+                    </li>
+                </Authorized>
+            </AuthorizeView>
             <li class="nav-item ">
                 <span class="navbar-text">
                     <LoginDisplay />
