@@ -8,7 +8,7 @@
 @inject NavigationManager Navigation
 
 <div class="form-inline">
-    <input class="form-control mr-sm-4" type="search" placeholder="Search" aria-label="Search" @bind="SearchText" disabled="@IsWorking">
+    <input class="form-control mr-sm-4" type="search" placeholder="Search" aria-label="Search" @bind="SearchText" @bind:event="oninput" disabled="@IsWorking" @onkeypress="SearchKeyPress">
     <select class="form-control mr-sm-3" id="categories" @bind="Category" disabled="@IsWorking">
         <option value=""></option>
         @foreach (var item in Categories)
@@ -71,5 +71,13 @@
         }
 
 
+    }
+
+    public async Task SearchKeyPress(KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter")
+        {
+            await SearchAsync();
+        }
     }
 }
