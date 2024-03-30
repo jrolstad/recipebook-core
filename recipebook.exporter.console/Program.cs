@@ -9,6 +9,8 @@ DependencyInjectionConfig.Configure(builder.Services);
 using IHost host = builder.Build();
 
 var exporter = host.Services.GetRequiredService<RecipeExporter>();
-await exporter.Execute();
+
+string existingFolderId = "1DPFc6pPm_H_yrmAuAD5zNKYePFR8tEFW";
+await exporter.Execute(existingFolderId);
 
 await host.RunAsync();
