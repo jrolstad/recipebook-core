@@ -1,7 +1,10 @@
 ﻿using Google.Apis.Docs.v1;
+using Google.Apis.Docs.v1.Data;
 using Google.Apis.Drive.v3;
 using recipebook.core.Managers;
 using recipebook.core.Models;
+using System.ComponentModel.DataAnnotations;
+using System.Text;
 
 namespace recipebook.exporter.console.Orchestrators
 {
@@ -11,8 +14,8 @@ namespace recipebook.exporter.console.Orchestrators
         private readonly DriveService driveService;
         private readonly DocsService docService;
 
-        public RecipeExporter(RecipeManager recipe, 
-            DriveService driveService, 
+        public RecipeExporter(RecipeManager recipe,
+            DriveService driveService,
             DocsService docService)
         {
             this.recipeManager = recipe;
@@ -25,7 +28,7 @@ namespace recipebook.exporter.console.Orchestrators
 
             var processingTasks = recipes
                 .Take(3)
-                .Select(r=>WriteRecipeToDocument(r,parentFolder));
+                .Select(r => WriteRecipeToDocument(r, parentFolder));
 
             await Task.WhenAll(processingTasks);
         }
@@ -33,9 +36,13 @@ namespace recipebook.exporter.console.Orchestrators
         private async Task WriteRecipeToDocument(Recipe recipe, string parentFolder)
         {
             var folderId = GetOrCreateFolder(recipe.Category, parentFolder);
-            var docId = CreateDoc(recipe.Name,folderId);
-            
+            var docId = CreateDoc(recipe.Name, folderId);
+            AddContentToDoc(docId, recipe);
+
+            Console.WriteLine($"Exported {recipe.Category}/{recipe.Name} to doc {docId}");
+
         }
+
 
         private string GetOrCreateFolder(string folderName, string parentFolderId)
         {
@@ -87,6 +94,124 @@ namespace recipebook.exporter.console.Orchestrators
             var doc = request.Execute();
             return doc.Id;
         }
-    }
 
+        private void AddContentToDoc(string docId, Recipe recipe)
+        {
+
+            var request = new BatchUpdateDocumentRequest
+            {
+                Requests = WriteContent(recipe)
+            };
+
+            var response = docService.Documents
+                .BatchUpdate(request, docId)
+                .Execute();
+
+            var document = docService.Documents.Get(docId).Execute();
+        }
+
+
+        private static Request[] WriteContent(Recipe recipe)
+        {
+            var titleStartIndex = 1;
+            var titleEndIndex = recipe.Name.Length+2;
+
+            var servingsStartIndex = titleEndIndex + 1;
+            var servingsEndIndex = servingsStartIndex + $"Servings: {recipe.Servings}".Length+2;
+
+            var ingredientsHeaderStartIndex = servingsEndIndex + 1;
+            var ingredientsHeaderEndIndex = ingredientsHeaderStartIndex + "Ingredients".Length+2;
+
+            var ingredientsContentStartIndex = ingredientsHeaderEndIndex + 1;
+            var ingredientsContentEndIndex = ingredientsContentStartIndex + recipe.Ingredients?.Trim().Length+2;
+
+            var directionsHeaderStartIndex = ingredientsContentEndIndex + 1;
+            var directionsHeaderEndIndex = directionsHeaderStartIndex + "Directions".Length + 2;
+
+            return new[]
+                            {
+                    new Request
+                    {
+                        InsertText = new InsertTextRequest
+                        {
+                            Location = new Location { Index = 1 },
+                            Text = FormatRecipeContent(recipe)
+                        }
+                    },
+                    new Request
+                    {
+                        UpdateParagraphStyle = new UpdateParagraphStyleRequest
+                        {
+                            Range = new Google.Apis.Docs.v1.Data.Range { StartIndex = titleStartIndex, EndIndex = titleEndIndex },
+                            ParagraphStyle = new ParagraphStyle
+                            {
+                                NamedStyleType = "TITLE"
+                            },
+                            Fields = "namedStyleType"
+                        }
+                    },
+                    new Request
+                    {
+                        UpdateParagraphStyle = new UpdateParagraphStyleRequest
+                        {
+                            Range = new Google.Apis.Docs.v1.Data.Range { StartIndex = servingsStartIndex, EndIndex = servingsEndIndex },
+                            ParagraphStyle = new ParagraphStyle
+                            {
+                                NamedStyleType = "SUBTITLE"
+                            },
+                            Fields = "namedStyleType"
+                        }
+                    },
+                    new Request
+                    {
+                        UpdateParagraphStyle = new UpdateParagraphStyleRequest
+                        {
+                            Range = new Google.Apis.Docs.v1.Data.Range { StartIndex = ingredientsHeaderStartIndex, EndIndex = ingredientsHeaderEndIndex },
+                            ParagraphStyle = new ParagraphStyle
+                            {
+                                NamedStyleType = "HEADING_1"
+                            },
+                            Fields = "namedStyleType"
+                        }
+                    },
+                    new Request
+                    {
+                        CreateParagraphBullets = new CreateParagraphBulletsRequest
+                        {
+                            Range = new Google.Apis.Docs.v1.Data.Range { StartIndex = ingredientsContentStartIndex, EndIndex = ingredientsContentEndIndex },
+                            BulletPreset = "BULLET_DISC_CIRCLE_SQUARE"
+                        }
+                    },
+                    new Request
+                    {
+                        UpdateParagraphStyle = new UpdateParagraphStyleRequest
+                        {
+                            Range = new Google.Apis.Docs.v1.Data.Range { StartIndex = directionsHeaderStartIndex, EndIndex = directionsHeaderEndIndex },
+                            ParagraphStyle = new ParagraphStyle
+                            {
+                                NamedStyleType = "HEADING_1"
+                            },
+                            Fields = "namedStyleType"
+                        }
+                    },
+                };
+        }
+
+        private static string FormatRecipeContent(Recipe recipe)
+        {
+            var builder = new StringBuilder();
+
+            builder.AppendLine(recipe.Name);
+            builder.AppendLine($"Servings: {recipe.Servings}");
+            builder.AppendLine("Ingredients");
+            builder.AppendLine(recipe.Ingredients?.Trim());
+            builder.AppendLine("Directions");
+            builder.AppendLine(recipe.Directions);
+            builder.AppendLine("Source");
+            builder.AppendLine(recipe.Source);
+            
+
+            return builder.ToString();
+        }
+    }
 }
