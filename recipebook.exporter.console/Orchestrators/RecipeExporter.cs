@@ -126,18 +126,18 @@ namespace recipebook.exporter.console.Orchestrators
                     .BatchUpdate(formatIngredientHeaderRequest, docId)
                     .Execute();
                 
-                Thread.Sleep(5000);
-                var documentAfterUpdate = docService.Documents.Get(docId).Execute();
-                var removeHashtagsRequest = new BatchUpdateDocumentRequest
-                {
-                    Requests = RemoveHashtagFromHeaders(documentAfterUpdate, recipe)
-                };
-                if (removeHashtagsRequest.Requests.Any())
-                {
-                    var removeHashtagResponse = docService.Documents
-                        .BatchUpdate(removeHashtagsRequest, docId)
-                        .Execute();
-                }
+                //Thread.Sleep(5000);
+                //var documentAfterUpdate = docService.Documents.Get(docId).Execute();
+                //var removeHashtagsRequest = new BatchUpdateDocumentRequest
+                //{
+                //    Requests = RemoveHashtagFromHeaders(documentAfterUpdate, recipe)
+                //};
+                //if (removeHashtagsRequest.Requests.Any())
+                //{
+                //    var removeHashtagResponse = docService.Documents
+                //        .BatchUpdate(removeHashtagsRequest, docId)
+                //        .Execute();
+                //}
             }
 
           
@@ -351,13 +351,13 @@ namespace recipebook.exporter.console.Orchestrators
                             ReplaceText = h.Paragraph.Elements[0].TextRun.Content.Substring(1) // Remove the '#' character
                         }
                     },
-                    //new Request
-                    //{
-                    //    DeleteParagraphBullets = new DeleteParagraphBulletsRequest
-                    //    {
-                    //        Range = new Google.Apis.Docs.v1.Data.Range { StartIndex = h.StartIndex, EndIndex = h.EndIndex }
-                    //    }
-                    //},
+                    new Request
+                    {
+                        DeleteParagraphBullets = new DeleteParagraphBulletsRequest
+                        {
+                            Range = new Google.Apis.Docs.v1.Data.Range { StartIndex = h.StartIndex, EndIndex = h.EndIndex-1 }
+                        }
+                    },
                 })
                 .SelectMany(h => h)
                 .ToArray();
