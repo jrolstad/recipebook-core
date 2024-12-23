@@ -115,6 +115,32 @@ namespace recipebook.exporter.console.Orchestrators
             var formatResponse = docService.Documents
                 .BatchUpdate(formatRequest, docId)
                 .Execute();
+
+            var formatIngredientHeaderRequest = new BatchUpdateDocumentRequest
+            {
+                Requests = FormatIngredientsHeaders(document, recipe)
+            };
+            if (formatIngredientHeaderRequest.Requests.Any())
+            {
+                var formatIngredientsHeadersResponse = docService.Documents
+                    .BatchUpdate(formatIngredientHeaderRequest, docId)
+                    .Execute();
+                
+                Thread.Sleep(5000);
+                var documentAfterUpdate = docService.Documents.Get(docId).Execute();
+                var removeHashtagsRequest = new BatchUpdateDocumentRequest
+                {
+                    Requests = RemoveHashtagFromHeaders(documentAfterUpdate, recipe)
+                };
+                if (removeHashtagsRequest.Requests.Any())
+                {
+                    var removeHashtagResponse = docService.Documents
+                        .BatchUpdate(removeHashtagsRequest, docId)
+                        .Execute();
+                }
+            }
+
+          
         }
 
 
@@ -144,7 +170,14 @@ namespace recipebook.exporter.console.Orchestrators
             builder.AppendLine("Directions");
             builder.AppendLine(RemoveEmptyLines(recipe.Directions));
             builder.AppendLine("Source");
-            builder.AppendLine(recipe.Source);
+            if (string.IsNullOrWhiteSpace(recipe.Source))
+            {
+                builder.AppendLine($"https://recipes.rolstadfamily.com/recipes/{recipe.Id}");
+            }
+            else
+            {
+                builder.AppendLine(recipe.Source);
+            }
 
 
             return builder.ToString();
@@ -184,7 +217,8 @@ namespace recipebook.exporter.console.Orchestrators
             var sourceHeaderStartIndex = sourceHeader.StartIndex;
             var sourceHeaderEndIndex = sourceHeader.EndIndex;
 
-            return new[]
+            
+            var result = new List<Request>()
                 {
                     new Request
                     {
@@ -264,14 +298,83 @@ namespace recipebook.exporter.console.Orchestrators
                         }
                     },
                 };
+
+            return result.ToArray();
+        }
+        private static Request[] FormatIngredientsHeaders(Document document, Recipe recipe)
+        {
+            var ingredientsHeaders = GetIngredientsHeaders(document.Body.Content);
+
+            return ingredientsHeaders
+                .Select(h => new[]
+                {
+                    new Request
+                    {
+                        DeleteParagraphBullets = new DeleteParagraphBulletsRequest
+                        {
+                            Range = new Google.Apis.Docs.v1.Data.Range { StartIndex = h.StartIndex, EndIndex = h.EndIndex }
+                        }
+                    },
+                    new Request
+                    {
+
+                        UpdateParagraphStyle = new UpdateParagraphStyleRequest
+                        {
+                            Range = new Google.Apis.Docs.v1.Data.Range { StartIndex = h.StartIndex, EndIndex = h.EndIndex },
+                            ParagraphStyle = new ParagraphStyle
+                            {
+                                NamedStyleType = "HEADING_2"
+                            },
+                            Fields = "namedStyleType"
+                        }
+                    }
+                })
+                .SelectMany(h => h)
+                .ToArray();
+        }
+        private static Request[] RemoveHashtagFromHeaders(Document document, Recipe recipe)
+        {
+            var ingredientsHeaders = GetIngredientsHeaders(document.Body.Content);
+
+            return ingredientsHeaders
+                .Select(h => new[]
+                {
+                    new Request
+                    {
+                        ReplaceAllText = new ReplaceAllTextRequest
+                        {
+                            ContainsText = new SubstringMatchCriteria
+                            {
+                                Text = h.Paragraph.Elements[0].TextRun.Content,
+                                MatchCase = true
+                            },
+                            ReplaceText = h.Paragraph.Elements[0].TextRun.Content.Substring(1) // Remove the '#' character
+                        }
+                    },
+                    //new Request
+                    //{
+                    //    DeleteParagraphBullets = new DeleteParagraphBulletsRequest
+                    //    {
+                    //        Range = new Google.Apis.Docs.v1.Data.Range { StartIndex = h.StartIndex, EndIndex = h.EndIndex }
+                    //    }
+                    //},
+                })
+                .SelectMany(h => h)
+                .ToArray();
         }
 
         private static StructuralElement GetHeader(string name, IList<StructuralElement> elements)
         {
-           
             return elements
                 .Where(e=>e.Paragraph?.Elements!=null)
                 .First(e => e.Paragraph.Elements.Any(pe => pe.TextRun.Content.StartsWith(name)));
+        }
+        private static ICollection<StructuralElement> GetIngredientsHeaders(IList<StructuralElement> elements)
+        {
+            return elements
+                .Where(e => e.Paragraph?.Elements != null)
+                .Where(e => e.Paragraph.Elements.Any(pe => pe.TextRun.Content.StartsWith("#")))
+                .ToList();
         }
     }
 }
