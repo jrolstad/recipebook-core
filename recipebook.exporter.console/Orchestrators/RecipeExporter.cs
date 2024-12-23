@@ -102,42 +102,90 @@ namespace recipebook.exporter.console.Orchestrators
             {
                 Requests = WriteContent(recipe)
             };
-
             var response = docService.Documents
                 .BatchUpdate(request, docId)
                 .Execute();
 
             var document = docService.Documents.Get(docId).Execute();
+
+            var formatRequest = new BatchUpdateDocumentRequest
+            {
+                Requests = FormatContent(document,recipe)
+            };
+            var formatResponse = docService.Documents
+                .BatchUpdate(formatRequest, docId)
+                .Execute();
         }
 
 
         private static Request[] WriteContent(Recipe recipe)
         {
-            var titleStartIndex = 1;
-            var titleEndIndex = recipe.Name.Length+2;
-
-            var servingsStartIndex = titleEndIndex + 1;
-            var servingsEndIndex = servingsStartIndex + $"Servings: {recipe.Servings}".Length+2;
-
-            var ingredientsHeaderStartIndex = servingsEndIndex + 1;
-            var ingredientsHeaderEndIndex = ingredientsHeaderStartIndex + "Ingredients".Length+2;
-
-            var ingredientsContentStartIndex = ingredientsHeaderEndIndex + 1;
-            var ingredientsContentEndIndex = ingredientsContentStartIndex + recipe.Ingredients?.Trim().Length+2;
-
-            var directionsHeaderStartIndex = ingredientsContentEndIndex + 1;
-            var directionsHeaderEndIndex = directionsHeaderStartIndex + "Directions".Length + 2;
-
             return new[]
-                            {
+                {
                     new Request
                     {
                         InsertText = new InsertTextRequest
                         {
                             Location = new Location { Index = 1 },
-                            Text = FormatRecipeContent(recipe)
+                            Text = WriteRecipeContent(recipe)
                         }
                     },
+                };
+        }
+
+        private static string WriteRecipeContent(Recipe recipe)
+        {
+            var builder = new StringBuilder();
+
+            builder.AppendLine(recipe.Name);
+            builder.AppendLine($"Servings: {recipe.Servings}");
+            builder.AppendLine("Ingredients");
+            builder.AppendLine(recipe.Ingredients?.Trim());
+            builder.AppendLine("Directions");
+            builder.AppendLine(RemoveEmptyLines(recipe.Directions));
+            builder.AppendLine("Source");
+            builder.AppendLine(recipe.Source);
+
+
+            return builder.ToString();
+        }
+        private static string RemoveEmptyLines(string value)
+        {
+            string result = string.Join("\n", value.Split(new[] { '\n' }, StringSplitOptions.None)
+                                                   .Where(line => !string.IsNullOrWhiteSpace(line)));
+            return result;
+        }
+
+        private static Request[] FormatContent(Document document, Recipe recipe)
+        {
+            var servingsHeader = GetHeader("Servings", document.Body.Content);
+            var ingredientsHeader = GetHeader("Ingredients", document.Body.Content);
+            var directionsHeader = GetHeader("Directions", document.Body.Content);
+            var sourceHeader = GetHeader("Source",document.Body.Content);
+
+            var titleStartIndex = document.Body.Content[1].StartIndex;
+            var titleEndIndex = document.Body.Content[1].EndIndex;
+
+            var servingsStartIndex = servingsHeader.StartIndex;
+            var servingsEndIndex = servingsHeader.EndIndex;
+
+            var ingredientsHeaderStartIndex = ingredientsHeader.StartIndex;
+            var ingredientsHeaderEndIndex = ingredientsHeader.EndIndex;
+
+            var ingredientsContentStartIndex = ingredientsHeader.EndIndex + 1;
+            var ingredientsContentEndIndex = directionsHeader.StartIndex - 1;
+
+            var directionsHeaderStartIndex = directionsHeader.StartIndex;
+            var directionsHeaderEndIndex = directionsHeader.EndIndex;
+
+            var directionsContentStartIndex = directionsHeader.EndIndex + 1;
+            var directionsContentEndIndex = sourceHeader.StartIndex - 1;
+
+            var sourceHeaderStartIndex = sourceHeader.StartIndex;
+            var sourceHeaderEndIndex = sourceHeader.EndIndex;
+
+            return new[]
+                {
                     new Request
                     {
                         UpdateParagraphStyle = new UpdateParagraphStyleRequest
@@ -194,24 +242,36 @@ namespace recipebook.exporter.console.Orchestrators
                             Fields = "namedStyleType"
                         }
                     },
+                    new Request
+                    {
+                        CreateParagraphBullets = new CreateParagraphBulletsRequest
+                        {
+                            Range = new Google.Apis.Docs.v1.Data.Range { StartIndex = directionsContentStartIndex, EndIndex = directionsContentEndIndex },
+                            BulletPreset = "NUMBERED_DECIMAL_NESTED"
+                        },
+                       
+                    },
+                    new Request
+                    {
+                        UpdateParagraphStyle = new UpdateParagraphStyleRequest
+                        {
+                            Range = new Google.Apis.Docs.v1.Data.Range { StartIndex = sourceHeaderStartIndex, EndIndex = sourceHeaderEndIndex },
+                            ParagraphStyle = new ParagraphStyle
+                            {
+                                NamedStyleType = "HEADING_1"
+                            },
+                            Fields = "namedStyleType"
+                        }
+                    },
                 };
         }
 
-        private static string FormatRecipeContent(Recipe recipe)
+        private static StructuralElement GetHeader(string name, IList<StructuralElement> elements)
         {
-            var builder = new StringBuilder();
-
-            builder.AppendLine(recipe.Name);
-            builder.AppendLine($"Servings: {recipe.Servings}");
-            builder.AppendLine("Ingredients");
-            builder.AppendLine(recipe.Ingredients?.Trim());
-            builder.AppendLine("Directions");
-            builder.AppendLine(recipe.Directions);
-            builder.AppendLine("Source");
-            builder.AppendLine(recipe.Source);
-            
-
-            return builder.ToString();
+           
+            return elements
+                .Where(e=>e.Paragraph?.Elements!=null)
+                .First(e => e.Paragraph.Elements.Any(pe => pe.TextRun.Content.StartsWith(name)));
         }
     }
 }
