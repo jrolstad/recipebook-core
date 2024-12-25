@@ -127,19 +127,6 @@ namespace recipebook.exporter.console.Orchestrators
                 var formatIngredientsHeadersResponse = docService.Documents
                     .BatchUpdate(formatIngredientHeaderRequest, docId)
                     .Execute();
-                
-                //Thread.Sleep(5000);
-                //var documentAfterUpdate = docService.Documents.Get(docId).Execute();
-                //var removeHashtagsRequest = new BatchUpdateDocumentRequest
-                //{
-                //    Requests = RemoveHashtagFromHeaders(documentAfterUpdate, recipe)
-                //};
-                //if (removeHashtagsRequest.Requests.Any())
-                //{
-                //    var removeHashtagResponse = docService.Documents
-                //        .BatchUpdate(removeHashtagsRequest, docId)
-                //        .Execute();
-                //}
             }
 
           
