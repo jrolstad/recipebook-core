@@ -27,7 +27,9 @@ namespace recipebook.exporter.console.Orchestrators
             var recipes = await this.recipeManager.Search(null, null);
 
             var processingTasks = recipes
-                .Take(3)
+                .OrderBy(r=>r.Category).ThenBy(r=>r.Name)
+                //.Take(3)
+                //.AsParallel()
                 .Select(r => WriteRecipeToDocument(r, parentFolder));
 
             await Task.WhenAll(processingTasks);
@@ -184,6 +186,8 @@ namespace recipebook.exporter.console.Orchestrators
         }
         private static string RemoveEmptyLines(string value)
         {
+            if (string.IsNullOrWhiteSpace(value)) return null;
+
             string result = string.Join("\n", value.Split(new[] { '\n' }, StringSplitOptions.None)
                                                    .Where(line => !string.IsNullOrWhiteSpace(line)));
             return result;
